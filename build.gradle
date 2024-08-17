@@ -1,0 +1,146 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.3'
+    id 'io.spring.dependency-management' version '1.1.4'
+
+    id 'org.hidetake.swagger.generator' version '2.19.2'
+    id 'com.epages.restdocs-api-spec' version '0.19.2'
+    id 'jacoco'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '17'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spring
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // REST Docs & Test
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+    testImplementation 'com.epages:restdocs-api-spec-mockmvc:0.19.2'
+
+    // Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.4.0'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // MySQL
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // H2
+    runtimeOnly 'com.h2database:h2'
+
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Flyway
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
+    // JPA
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Querydsl
+    implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+    annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
+    annotationProcessor "jakarta.annotation:jakarta.annotation-api"
+    annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+
+    // Query Log
+    implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.0'
+
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+}
+
+clean {
+    delete file('src/main/generated')
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// OAS 설정
+openapi3 {
+    title = 'JiHongKim98 REST API'
+    description = 'API 문서'
+    version = this.version
+    format = 'yaml'
+    servers = [
+            { url = 'http://localhost:8080' },
+    ]
+    outputDirectory = layout.buildDirectory.dir("/resources/main/static/docs").get()
+}
+
+// Swagger 설정
+generateSwaggerUI {
+    dependsOn 'openapi3'
+}
+
+bootJar {
+    dependsOn 'generateSwaggerUI'
+}
+
+build {
+    dependsOn 'generateSwaggerUI'
+
+    // local 환경에서 swagger-ui 확인용
+    doLast {
+        delete file(layout.projectDirectory.dir("/src/main/resources/static/docs"))
+        copy {
+            from(layout.buildDirectory.dir("/resources/main/static/docs").get())
+            into(layout.projectDirectory.dir("/src/main/resources/static/docs"))
+        }
+    }
+}
+
+// jacoco 설정
+jacoco {
+    toolVersion = '0.8.11'
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    dependsOn test
+
+    finalizedBy jacocoTestCoverageVerification
+}
+
+// TEST 커버리지가 minimum 미만이면 빌드 실패
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.01  // Fix it
+            }
+        }
+    }
+}
